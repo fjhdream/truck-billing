@@ -1,15 +1,22 @@
-// main.rs
+#[macro_use]
+extern crate lazy_static;
+extern crate dotenv;
+
 mod entities;
 
+use std::env;
+use dotenv::dotenv;
 use poem::{get, handler, listener::TcpListener, web::Path, Route, Server};
 use entities::*;
 use poem_openapi::{OpenApi, payload::PlainText, OpenApiService};
 use sea_orm::*;
 use entities::user::Entity as UserEntity;
+use tokio::sync::OnceCell;
+use tracing::log::warn;
 
-//postgreSql
-const DATABASE_URL: &str = "postgres://postgres:01010727.@localhost:5432/truck-db";
-
+lazy_static! {
+    static ref DATABASE : OnceCell<DatabaseConnection> = OnceCell::new();
+}
 struct Api;
 
 #[OpenApi]
@@ -23,8 +30,8 @@ impl Api {
 
 #[handler]
 async fn hello(Path(name): Path<String>) -> String {
-    if let Ok(db) = Database::connect(DATABASE_URL).await{
-        let user_query :Result<Option<user::Model>, DbErr> = UserEntity::find_by_id("1232".to_string()).one(&db).await;
+    if let Some(db) = DATABASE.get() {
+        let user_query :Result<Option<user::Model>, DbErr> = UserEntity::find_by_id("1232".to_string()).one(db).await;
         if let Ok(Some(user)) = user_query {
             return format!("hello: {}, db is connected!", user.user_name);
         } else {
@@ -37,6 +44,11 @@ async fn hello(Path(name): Path<String>) -> String {
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
+    dotenv().ok();
+    let db_con = Database::connect(env::var("DATABASE_URL").unwrap()).await.unwrap();
+    if let Err(e) = DATABASE.set(db_con) {
+        warn!("set global db error {}", e);
+    } 
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
         .with_test_writer()
