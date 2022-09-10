@@ -1,26 +1,39 @@
-use poem_openapi::{OpenApi, payload::PlainText};
+use poem_openapi::{
+    payload::{Json, PlainText},
+    ApiResponse, Object, OpenApi, Tags,
+};
+
+#[derive(Tags)]
+enum ApiTags {
+    /// Operations about user
+    User,
+}
+
+#[derive(Debug, Object, Clone, Eq, PartialEq)]
+struct UserDTO {
+    /// Id
+    #[oai(validator(max_length = 128))]
+    id: String,
+    /// Name
+    #[oai(validator(max_length = 128))]
+    name: String,
+
+    #[oai]
+    avatar_url: Option<String>,
+}
+
+#[derive(ApiResponse)]
+enum CreateUserResponse {
+    #[oai(status = 200)]
+    Ok(Json<String>),
+}
 
 pub struct UserRouter;
 
 #[OpenApi]
 impl UserRouter {
-    #[oai(path = "/", method = "get")]
-    async fn index(&self) -> PlainText<&'static str> {
-        PlainText("Hello World")
+    #[oai(path = "/", method = "post", tag = "ApiTags::User")]
+    async fn create(&self, user: Json<UserDTO>) -> CreateUserResponse {
+        return CreateUserResponse::Ok(Json(user.0.id));
     }
-
-    // #[oai(path = "/user", method = "get")]
-    // async fn index(&self) -> PlainText<&'static str> {
-    //     PlainText("Hello World")
-    // }
-
-    // #[oai(path = "/user", method = "get")]
-    // async fn index(&self) -> PlainText<&'static str> {
-    //     PlainText("Hello World")
-    // }
-
-    // #[oai(path = "/user", method = "get")]
-    // async fn index(&self) -> PlainText<&'static str> {
-    //     PlainText("Hello World")
-    // }
 }
