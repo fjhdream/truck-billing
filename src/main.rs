@@ -63,12 +63,16 @@ async fn main() -> Result<(), std::io::Error> {
         warn!("set global db error {}", e);
     }
 
-    let bind_addr = "http://localhost:3000";
+    let bind_addr = format!(
+        "{}:{}",
+        env::var("SERVER").unwrap(),
+        env::var("PORT").unwrap()
+    );
 
-    let api_service = OpenApiService::new(Api, "Hello World", "1.0").server(bind_addr);
+    let api_service = OpenApiService::new(Api, "Hello World", "1.0").server(&bind_addr);
     let ui = api_service.swagger_ui();
 
-    let user_service = OpenApiService::new(UserRouter, "User Service", "1.0").server(bind_addr);
+    let user_service = OpenApiService::new(UserRouter, "User Service", "1.0").server(&bind_addr);
     let user_ui = user_service.swagger_ui();
 
     let app = Route::new()
@@ -76,7 +80,5 @@ async fn main() -> Result<(), std::io::Error> {
         .nest("/user", user_service)
         .nest("/docs", ui)
         .nest("/docs/user", user_ui);
-    Server::new(TcpListener::bind("127.0.0.1:3000"))
-        .run(app)
-        .await
+    Server::new(TcpListener::bind(&bind_addr)).run(app).await
 }
