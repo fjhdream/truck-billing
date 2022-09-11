@@ -1,9 +1,11 @@
 use sea_orm::{ActiveModelTrait, DbErr, Set};
+use tracing::instrument;
 
 use crate::{entities::user, DATABASE};
 
 use super::controller::UserDTO;
 
+#[derive(Debug)]
 pub struct UserAggregate {
     id: String,
     name: String,
@@ -11,6 +13,7 @@ pub struct UserAggregate {
 }
 
 impl UserAggregate {
+    #[instrument]
     pub async fn create_user(self) -> Result<String, DbErr> {
         let db = DATABASE.get().unwrap();
         let insert_result = user::ActiveModel {
