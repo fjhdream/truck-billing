@@ -3,6 +3,8 @@ use poem_openapi::{payload::Json, ApiResponse, Object, OpenApi, Tags};
 use sea_orm::{ActiveModelTrait, Set};
 use tracing::log::warn;
 
+use super::service::UserAggregate;
+
 #[derive(Tags)]
 enum ApiTags {
     /// Operations about user
@@ -10,16 +12,16 @@ enum ApiTags {
 }
 
 #[derive(Debug, Object, Clone, Eq, PartialEq)]
-struct UserDTO {
+pub struct UserDTO {
     /// Id
     #[oai(validator(max_length = 128))]
-    id: String,
+    pub id: String,
     /// Name
     #[oai(validator(max_length = 128))]
-    name: String,
+    pub name: String,
 
     #[oai]
-    avatar_url: Option<String>,
+    pub avatar_url: Option<String>,
 }
 
 #[derive(ApiResponse)]
@@ -35,20 +37,15 @@ pub struct UserRouter;
 
 #[OpenApi]
 impl UserRouter {
-    #[oai(path = "/", method = "post", tag = "ApiTags::User")]
+    #[oai(path = "/user", method = "post", tag = "ApiTags::User")]
     async fn create(&self, user: Json<UserDTO>) -> CreateUserResponse {
-        let db = DATABASE.get().unwrap();
-        let insert_result = user::ActiveModel {
-            id: Set(user.id.to_owned()),
-            user_name: Set(user.name.to_owned()),
-            avatar_url: Set(user.avatar_url.to_owned()),
-        }
-        .insert(db)
-        .await;
-        if let Err(err) = insert_result {
-            warn!("insert user met error {}", err);
+        let user_dto = user.0;
+        let user_aggregate: UserAggregate = user_dto.into();
+        let create_result = user_aggregate.create_user().await;
+        if let Err(err) = create_result {
+            warn!("create user met error {}", err);
             return CreateUserResponse::Error;
         }
-        return CreateUserResponse::Ok(Json(user.0.id));
+        return CreateUserResponse::Ok(Json(create_result.unwrap()));
     }
 }
