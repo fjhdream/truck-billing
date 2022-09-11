@@ -1,6 +1,4 @@
-use crate::{entities::user, DATABASE};
 use poem_openapi::{payload::Json, ApiResponse, Object, OpenApi, Tags};
-use sea_orm::{ActiveModelTrait, Set};
 use tracing::log::warn;
 
 use super::service::UserAggregate;
@@ -46,6 +44,6 @@ impl UserRouter {
             warn!("create user met error {}", err);
             return CreateUserResponse::Error;
         }
-        return CreateUserResponse::Ok(Json(create_result.unwrap()));
+        CreateUserResponse::Ok(Json(create_result.unwrap()))
     }
 }

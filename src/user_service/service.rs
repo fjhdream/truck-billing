@@ -23,7 +23,7 @@ impl UserAggregate {
         if let Err(err) = insert_result {
             return Err(err);
         }
-        return Ok(self.id);
+        Ok(self.id)
     }
 }
 

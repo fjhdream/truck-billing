@@ -6,9 +6,8 @@ mod entities;
 mod user_service;
 
 use dotenv::dotenv;
-use entities::user::Entity as UserEntity;
-use poem::{handler, listener::TcpListener, web::Path, Route, Server};
-use poem_openapi::{payload::PlainText, OpenApi, OpenApiService};
+use poem::{listener::TcpListener, Route, Server};
+use poem_openapi::OpenApiService;
 use sea_orm::*;
 use std::env;
 use tokio::sync::OnceCell;
@@ -16,35 +15,8 @@ use tracing::log::warn;
 
 use user_service::controller::UserRouter;
 
-use crate::entities::user;
-
 lazy_static! {
     static ref DATABASE: OnceCell<DatabaseConnection> = OnceCell::new();
-}
-struct Api;
-
-#[OpenApi]
-impl Api {
-    /// Hello world
-    #[oai(path = "/", method = "get")]
-    async fn index(&self) -> PlainText<&'static str> {
-        PlainText("Hello Root")
-    }
-}
-
-#[handler]
-async fn hello(Path(name): Path<String>) -> String {
-    if let Some(db) = DATABASE.get() {
-        let user_query: Result<Option<user::Model>, DbErr> =
-            UserEntity::find_by_id("1232".to_string()).one(db).await;
-        if let Ok(Some(user)) = user_query {
-            return format!("hello: {}, db is connected!", user.user_name);
-        } else {
-            return format!("get empty user, hello: {}", name);
-        }
-    } else {
-        return format!("connect db error");
-    }
 }
 
 #[tokio::main]
