@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
+use poem_openapi::Enum;
 use sea_orm::{ActiveModelTrait, ActiveValue, DbErr, Set};
+
 use tracing::{info, instrument};
 use uuid::Uuid;
 
@@ -18,7 +20,7 @@ pub struct UserRoleAggregate {
     role_type: UserRoleType,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Enum, Clone, Eq, PartialEq)]
 pub enum UserRoleType {
     Admin,
     Driver,
@@ -33,6 +35,16 @@ impl Into<RoleType> for UserRoleType {
             UserRoleType::Driver => RoleType::Driver,
             UserRoleType::Owner => RoleType::Owner,
             UserRoleType::None => RoleType::Driver,
+        }
+    }
+}
+
+impl From<RoleType> for UserRoleType {
+    fn from(role_type: RoleType) -> Self {
+        match role_type {
+            RoleType::Admin => UserRoleType::Admin,
+            RoleType::Driver => UserRoleType::Driver,
+            RoleType::Owner => UserRoleType::Owner,
         }
     }
 }
@@ -58,7 +70,7 @@ impl UserRoleAggregate {
             info!("[UserRoleService] convert all other type to Driver")
         }
         let insert_result = role::ActiveModel {
-            id: Set(Uuid::new_v4()),
+            id: Set(self.id),
             user_id: Set(self.user_id.clone()),
             r#type: ActiveValue::Set(self.role_type.into()),
         }
@@ -68,6 +80,10 @@ impl UserRoleAggregate {
             return Err(err);
         }
         Ok(self.id)
+    }
+
+    pub async fn get(self) -> Result<(), DbErr> {
+        Ok(())
     }
 }
 
