@@ -7,8 +7,8 @@ use sea_orm::entity::prelude::*;
 pub enum ItemType {
     #[sea_orm(string_value = "BASIC")]
     Basic,
-    #[sea_orm(string_value = "COUSTOM")]
-    Coustom,
+    #[sea_orm(string_value = "CUSTOM")]
+    Custom,
 }
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "role_type")]

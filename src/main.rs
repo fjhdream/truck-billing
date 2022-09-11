@@ -3,6 +3,7 @@ extern crate lazy_static;
 extern crate dotenv;
 
 mod entities;
+mod role_service;
 mod user_service;
 
 use dotenv::dotenv;
@@ -11,6 +12,7 @@ use poem::{
     Server,
 };
 use poem_openapi::OpenApiService;
+use role_service::controller::UserRoleRouter;
 use sea_orm::*;
 use std::env;
 use tokio::sync::OnceCell;
@@ -45,7 +47,8 @@ async fn main() -> Result<(), std::io::Error> {
     );
 
     let api_service =
-        OpenApiService::new(UserRouter, "Truck Billing Service", "1.0").server(&bind_addr);
+        OpenApiService::new((UserRouter, UserRoleRouter), "Truck Billing Service", "1.0")
+            .server(&bind_addr);
 
     let ui = api_service.swagger_ui();
 
