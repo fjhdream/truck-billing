@@ -6,7 +6,10 @@ mod entities;
 mod user_service;
 
 use dotenv::dotenv;
-use poem::{listener::TcpListener, Route, Server};
+use poem::{
+    error::NotFoundError, http::StatusCode, listener::TcpListener, EndpointExt, Response, Route,
+    Server,
+};
 use poem_openapi::OpenApiService;
 use sea_orm::*;
 use std::env;
@@ -46,6 +49,13 @@ async fn main() -> Result<(), std::io::Error> {
 
     let ui = api_service.swagger_ui();
 
-    let app = Route::new().nest("/", api_service).nest("/docs", ui);
+    let app = Route::new()
+        .nest("/", api_service)
+        .nest("/docs", ui)
+        .catch_error(|_err: NotFoundError| async move {
+            Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body("custom not found")
+        });
     Server::new(TcpListener::bind(&bind_addr)).run(app).await
 }
