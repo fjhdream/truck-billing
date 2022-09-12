@@ -1,5 +1,6 @@
 use poem_openapi::{param::Path, payload::Json, ApiResponse, Object, OpenApi, Tags};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use uuid::Uuid;
 
 use crate::{entities::role, DATABASE};
 
@@ -54,6 +55,21 @@ impl From<role::Model> for UserRoleResponseEntity {
     }
 }
 
+#[derive(ApiResponse)]
+enum DeleteUserRoleResponse {
+    #[oai(status = 201)]
+    Ok,
+
+    #[oai(status = 500)]
+    Error,
+}
+
+#[derive(Debug, Object, Clone, Eq, PartialEq)]
+pub struct DeleteUserRoleDTO {
+    #[oai]
+    pub role_id: String,
+}
+
 pub struct UserRoleRouter;
 
 #[OpenApi]
@@ -90,5 +106,31 @@ impl UserRoleRouter {
         } else {
             GetUserRoleResponse::Error
         }
+    }
+
+    #[oai(
+        path = "/user/role/:user_id",
+        method = "delete",
+        tag = "ApiTags::UserRole"
+    )]
+    async fn delete(
+        &self,
+        user_id: Path<String>,
+        body: Json<DeleteUserRoleDTO>,
+    ) -> DeleteUserRoleResponse {
+        let db = DATABASE.get().unwrap();
+        let user_id = user_id.0;
+        let delete_user_role_dto = body.0;
+        if let Ok(role_id) = Uuid::parse_str(&delete_user_role_dto.role_id) {
+            if (role::Entity::delete_by_id(role_id)
+                .filter(role::Column::UserId.eq(user_id))
+                .exec(db)
+                .await)
+                .is_ok()
+            {
+                return DeleteUserRoleResponse::Ok;
+            }
+        };
+        DeleteUserRoleResponse::Error
     }
 }
