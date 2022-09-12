@@ -8,10 +8,19 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub team_name: String,
+    pub user_id: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::user::Entity",
+        from = "Column::UserId",
+        to = "super::user::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    User,
     #[sea_orm(has_many = "super::car::Entity")]
     Car,
     #[sea_orm(has_many = "super::team_car::Entity")]
@@ -22,6 +31,12 @@ pub enum Relation {
     Billing,
     #[sea_orm(has_many = "super::team_driver::Entity")]
     TeamDriver,
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::User.def()
+    }
 }
 
 impl Related<super::car::Entity> for Entity {

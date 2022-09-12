@@ -18,6 +18,8 @@ pub enum Relation {
     Role,
     #[sea_orm(has_many = "super::team_driver::Entity")]
     TeamDriver,
+    #[sea_orm(has_many = "super::team::Entity")]
+    Team,
 }
 
 impl Related<super::role::Entity> for Entity {
@@ -29,6 +31,12 @@ impl Related<super::role::Entity> for Entity {
 impl Related<super::team_driver::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TeamDriver.def()
+    }
+}
+
+impl Related<super::team::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Team.def()
     }
 }
 
