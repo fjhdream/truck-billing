@@ -23,12 +23,12 @@ pub enum Relation {
     User,
     #[sea_orm(has_many = "super::car::Entity")]
     Car,
-    #[sea_orm(has_many = "super::team_car::Entity")]
-    TeamCar,
     #[sea_orm(has_many = "super::item::Entity")]
     Item,
     #[sea_orm(has_many = "super::billing::Entity")]
     Billing,
+    #[sea_orm(has_many = "super::team_car::Entity")]
+    TeamCar,
     #[sea_orm(has_many = "super::team_driver::Entity")]
     TeamDriver,
 }
@@ -45,12 +45,6 @@ impl Related<super::car::Entity> for Entity {
     }
 }
 
-impl Related<super::team_car::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::TeamCar.def()
-    }
-}
-
 impl Related<super::item::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Item.def()
@@ -60,6 +54,12 @@ impl Related<super::item::Entity> for Entity {
 impl Related<super::billing::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Billing.def()
+    }
+}
+
+impl Related<super::team_car::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TeamCar.def()
     }
 }
 
