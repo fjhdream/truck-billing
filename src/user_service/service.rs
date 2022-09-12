@@ -1,11 +1,7 @@
 use sea_orm::{ActiveModelTrait, DbErr, Set};
 use tracing::instrument;
 
-use crate::{
-    entities::user,
-    role_service::{service::UserRoleAggregate},
-    DATABASE,
-};
+use crate::{entities::user, role_service::service::UserRoleAggregate, DATABASE};
 
 use super::controller::UserDTO;
 

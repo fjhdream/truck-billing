@@ -1,7 +1,10 @@
 use std::str::FromStr;
 
+use chrono::Utc;
 use poem_openapi::{param::Path, payload::Json, ApiResponse, Object, OpenApi, Tags};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+use tracing::info;
 use uuid::Uuid;
 
 use crate::{entities::role, DATABASE};
@@ -102,15 +105,27 @@ impl UserRoleRouter {
     async fn get(&self, user_id: Path<String>) -> GetUserRoleResponse {
         let db = DATABASE.get().unwrap();
         let user_id = user_id.0;
+        let start_time = Utc::now();
+        info!("start query orm");
         let user_entity_result = role::Entity::find()
             .filter(role::Column::UserId.eq(user_id))
             .all(db)
             .await;
+        let end_time = Utc::now();
+        info!(
+            "end query orm, cost time: {}ms",
+            (end_time - start_time).num_milliseconds()
+        );
         if let Ok(models) = user_entity_result {
             let mut response: Vec<UserRoleResponseEntity> = vec![];
             for model in models {
                 response.push(model.into())
             }
+            let end_time = Utc::now();
+            info!(
+                "end api response, cost time: {}ms",
+                (end_time - start_time).num_milliseconds()
+            );
             GetUserRoleResponse::Ok(Json(response))
         } else {
             GetUserRoleResponse::Error
