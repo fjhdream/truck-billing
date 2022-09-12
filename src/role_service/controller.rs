@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use poem_openapi::{param::Path, payload::Json, ApiResponse, Object, OpenApi, Tags};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use uuid::Uuid;
@@ -16,10 +18,6 @@ enum ApiTags {
 pub struct UserRoleDTO {
     #[oai]
     pub role_type: String,
-
-    /// UserId
-    #[oai(validator(max_length = 128))]
-    pub user_id: String,
 }
 
 #[derive(ApiResponse)]
@@ -74,11 +72,22 @@ pub struct UserRoleRouter;
 
 #[OpenApi]
 impl UserRoleRouter {
-    #[oai(path = "/user/role", method = "post", tag = "ApiTags::UserRole")]
-    async fn create(&self, user: Json<UserRoleDTO>) -> AddUserRoleResponse {
-        let user_role_dto = user.0;
-        let user_aggregate: UserRoleAggregate = user_role_dto.into();
-        let add_result = user_aggregate.add_user_role().await;
+    #[oai(
+        path = "/user/role/:user_id",
+        method = "post",
+        tag = "ApiTags::UserRole"
+    )]
+    async fn create(
+        &self,
+        user_id: Path<String>,
+        user_role: Json<UserRoleDTO>,
+    ) -> AddUserRoleResponse {
+        let user_aggregate: UserRoleAggregate = UserRoleAggregate::new(
+            Uuid::new_v4(),
+            user_id.0,
+            UserRoleType::from_str(&user_role.role_type).unwrap(),
+        );
+        let add_result = user_aggregate.save().await;
         if let Ok(id) = add_result {
             return AddUserRoleResponse::Ok(Json(id.to_string()));
         }

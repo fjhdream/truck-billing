@@ -1,7 +1,11 @@
 use sea_orm::{ActiveModelTrait, DbErr, Set};
 use tracing::instrument;
 
-use crate::{entities::user, role_service::service::UserRoleAggregate, DATABASE};
+use crate::{
+    entities::user,
+    role_service::{service::UserRoleAggregate},
+    DATABASE,
+};
 
 use super::controller::UserDTO;
 
@@ -24,7 +28,7 @@ impl UserAggregate {
         .insert(db)
         .await?;
 
-        let role = UserRoleAggregate::from_user_id(self.id.clone());
+        let role = UserRoleAggregate::default_from_user_id(self.id.clone());
         role.save().await?;
         Ok(self.id.clone())
     }
