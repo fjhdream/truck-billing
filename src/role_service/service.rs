@@ -63,6 +63,14 @@ impl FromStr for UserRoleType {
 }
 
 impl UserRoleAggregate {
+    pub fn from_user_id(user_id: String) -> Self {
+        UserRoleAggregate {
+            id: Uuid::new_v4(),
+            user_id,
+            role_type: UserRoleType::Driver,
+        }
+    }
+
     #[instrument]
     pub async fn add_user_role(self) -> Result<Uuid, DbErr> {
         let db = DATABASE.get().unwrap();
@@ -80,6 +88,19 @@ impl UserRoleAggregate {
             return Err(err);
         }
         Ok(self.id)
+    }
+
+    #[instrument]
+    pub async fn save(self) -> Result<Uuid, DbErr> {
+        let db = DATABASE.get().unwrap();
+        let insert_result = role::ActiveModel {
+            id: Set(self.id),
+            user_id: Set(self.user_id.clone()),
+            r#type: ActiveValue::Set(self.role_type.into()),
+        }
+        .insert(db)
+        .await?;
+        Ok(insert_result.id)
     }
 
     pub async fn get(self) -> Result<(), DbErr> {
