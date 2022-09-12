@@ -3,7 +3,7 @@ use std::str::FromStr;
 use poem_openapi::Enum;
 use sea_orm::{ActiveModelTrait, ActiveValue, DbErr, Set};
 
-use tracing::{instrument};
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{

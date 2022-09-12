@@ -4,6 +4,7 @@ extern crate dotenv;
 
 mod entities;
 mod role_service;
+mod team_service;
 mod user_service;
 
 use dotenv::dotenv;
@@ -15,6 +16,7 @@ use poem_openapi::OpenApiService;
 use role_service::controller::UserRoleRouter;
 use sea_orm::*;
 use std::env;
+use team_service::controller::TeamRouter;
 use tokio::sync::OnceCell;
 use tracing::log::warn;
 
@@ -46,9 +48,12 @@ async fn main() -> Result<(), std::io::Error> {
         env::var("PORT").unwrap()
     );
 
-    let api_service =
-        OpenApiService::new((UserRouter, UserRoleRouter), "Truck Billing Service", "1.0")
-            .server(&bind_addr);
+    let api_service = OpenApiService::new(
+        (UserRouter, UserRoleRouter, TeamRouter),
+        "Truck Billing Service",
+        "1.0",
+    )
+    .server(&bind_addr);
 
     let ui = api_service.swagger_ui();
 
