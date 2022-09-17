@@ -47,6 +47,11 @@ pub struct Team {
     user_id: String,
 }
 
+#[derive(Debug)]
+pub struct TeamUser {
+    pub user_id: String,
+}
+
 impl Team {
     #[instrument]
     pub async fn from_id(id: String) -> Result<Self, TeamError> {
@@ -100,5 +105,24 @@ impl Team {
             info!("Delete affected row is {}", affect_row);
         }
         Ok(())
+    }
+
+    #[instrument]
+    pub async fn get_drivers(&self) -> Result<Vec<TeamUser>, TeamError> {
+        let team_id = self.id;
+        let db = DATABASE.get().unwrap();
+        let query_result = team_driver::Entity::find()
+            .filter(team_driver::Column::TeamId.eq(team_id))
+            .all(db)
+            .await?;
+
+        let mut res: Vec<TeamUser> = vec![];
+        for query in query_result {
+            let team_user = TeamUser {
+                user_id: query.user_id,
+            };
+            res.push(team_user);
+        }
+        Ok(res)
     }
 }

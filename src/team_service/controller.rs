@@ -3,6 +3,7 @@ use sea_orm::{ActiveModelTrait, Set};
 use uuid::Uuid;
 
 use crate::{entities::team, DATABASE};
+use crate::team_service::service::TeamUser;
 
 use super::service::Team;
 
@@ -34,7 +35,7 @@ pub struct TeamUserDTO {
 
 #[derive(ApiResponse)]
 enum TeamAddUserResponse {
-    #[oai(status = 200)]
+    #[oai(status = 201)]
     Ok,
 
     #[oai(status = 500)]
@@ -48,6 +49,28 @@ enum TeamDeleteUserResponse {
 
     #[oai(status = 500)]
     Error,
+}
+
+#[derive(ApiResponse)]
+enum TeamGetUserResponse {
+    #[oai(status = 200)]
+    Ok(Json<Vec<TeamUserResponseEntity>>),
+
+    #[oai(status = 500)]
+    Error,
+}
+
+#[derive(Debug, Object, Clone, Eq, PartialEq)]
+struct TeamUserResponseEntity {
+    user_id: String,
+}
+
+impl From<TeamUser> for TeamUserResponseEntity {
+    fn from(team_user : TeamUser) -> Self {
+        TeamUserResponseEntity {
+            user_id: team_user.user_id
+        }
+    }
 }
 
 #[derive(Debug, Object, Clone, Eq, PartialEq)]
@@ -67,7 +90,7 @@ enum TeamAddCarResponse {
 
 #[derive(ApiResponse)]
 enum TeamDeleteCarResponse {
-    #[oai(status = 201)]
+    #[oai(status = 204)]
     Ok,
 
     #[oai(status = 500)]
@@ -133,6 +156,24 @@ impl TeamRouter {
             }
         } else {
             TeamAddUserResponse::Error
+        }
+    }
+
+    #[oai(path = "/team/:team_id/user", method = "get", tag = "ApiTags::Team")]
+    async fn team_get_user(&self, team_id: Path<String>) -> TeamGetUserResponse {
+        let team_id = team_id.0;
+        if let Ok(team) = Team::from_id(team_id).await {
+            if let Ok(res) = team.get_drivers().await {
+                let mut response: Vec<TeamUserResponseEntity> = vec![];
+                for team_user in res {
+                    response.push(team_user.into());
+                }
+                TeamGetUserResponse::Ok(Json(response))
+            } else {
+                TeamGetUserResponse::Error
+            }
+        } else {
+            TeamGetUserResponse::Error
         }
     }
 }
