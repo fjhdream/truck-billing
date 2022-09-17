@@ -1,7 +1,7 @@
 use std::error::Error;
 
-use sea_orm::{ActiveModelTrait, EntityTrait, Set};
-use tracing::{instrument, warn};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DbErr, EntityTrait, ModelTrait, QueryFilter, Set};
+use tracing::{info, instrument, warn};
 use uuid::Uuid;
 
 use crate::{
@@ -12,8 +12,13 @@ use crate::{
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TeamError {
     QueryTeamError(String),
-    DbQueryError,
-    DbInsertError,
+    DbError,
+}
+
+impl From<DbErr> for TeamError {
+    fn from(_: DbErr) -> Self {
+        TeamError::DbError
+    }
 }
 
 impl Error for TeamError {}
@@ -28,11 +33,8 @@ impl std::fmt::Display for TeamError {
                     team_id
                 )
             }
-            TeamError::DbQueryError => {
+            TeamError::DbError => {
                 write!(f, "Database query error")
-            }
-            TeamError::DbInsertError => {
-                write!(f, "Database insert error")
             }
         }
     }
@@ -73,17 +75,30 @@ impl Team {
     pub async fn add_driver(&self, user_id: String) -> Result<(), TeamError> {
         let team_id = self.id;
         let db = DATABASE.get().unwrap();
-        let insert_result = team_driver::ActiveModel {
+        let _insert_result = team_driver::ActiveModel {
             id: Set(Uuid::new_v4()),
             user_id: Set(user_id),
             team_id: Set(team_id),
         }
         .insert(db)
-        .await;
-        if let Ok(_insert) = insert_result {
-            Ok(())
-        } else {
-            Err(TeamError::DbInsertError)
+        .await?;
+        Ok(())
+    }
+
+    #[instrument]
+    pub async fn delete_driver(&self, user_id: String) -> Result<(), TeamError> {
+        let _team_id = self.id;
+        let db = DATABASE.get().unwrap();
+        let query_result = team_driver::Entity::find()
+            .filter(team_driver::Column::TeamId.eq(self.id))
+            .filter(team_driver::Column::UserId.eq(user_id))
+            .one(db)
+            .await?;
+        if let Some(query_model) = query_result {
+            let delete_result = query_model.delete(db).await?;
+            let affect_row = delete_result.rows_affected;
+            info!("Delete affected row is {}", affect_row);
         }
+        Ok(())
     }
 }

@@ -43,7 +43,7 @@ enum TeamAddUserResponse {
 
 #[derive(ApiResponse)]
 enum TeamDeleteUserResponse {
-    #[oai(status = 201)]
+    #[oai(status = 204)]
     Ok,
 
     #[oai(status = 500)]
@@ -98,6 +98,24 @@ impl TeamRouter {
             return CreateTeamResponse::Error;
         }
         CreateTeamResponse::Ok
+    }
+
+    #[oai(path = "/team/:team_id/user", method = "delete", tag = "ApiTags::Team")]
+    async fn team_delete_user(
+        &self,
+        team_id: Path<String>,
+        team_dto: Json<TeamUserDTO>,
+    ) -> TeamDeleteUserResponse {
+        let team_id = team_id.0;
+        if let Ok(team) = Team::from_id(team_id).await {
+            if let Ok(_res) = team.delete_driver(team_dto.user_id.clone()).await {
+                TeamDeleteUserResponse::Ok
+            } else {
+                TeamDeleteUserResponse::Error
+            }
+        } else {
+            TeamDeleteUserResponse::Error
+        }
     }
 
     #[oai(path = "/team/:team_id/user", method = "post", tag = "ApiTags::Team")]
