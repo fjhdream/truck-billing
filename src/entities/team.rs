@@ -2,7 +2,7 @@
 
 use sea_orm::entity::prelude::*;
 
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "team")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
@@ -21,27 +21,19 @@ pub enum Relation {
         on_delete = "NoAction"
     )]
     User,
-    #[sea_orm(has_many = "super::car::Entity")]
-    Car,
     #[sea_orm(has_many = "super::item::Entity")]
     Item,
     #[sea_orm(has_many = "super::billing::Entity")]
     Billing,
-    #[sea_orm(has_many = "super::team_car::Entity")]
-    TeamCar,
     #[sea_orm(has_many = "super::team_driver::Entity")]
     TeamDriver,
+    #[sea_orm(has_many = "super::team_car::Entity")]
+    TeamCar,
 }
 
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
-    }
-}
-
-impl Related<super::car::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Car.def()
     }
 }
 
@@ -57,15 +49,15 @@ impl Related<super::billing::Entity> for Entity {
     }
 }
 
-impl Related<super::team_car::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::TeamCar.def()
-    }
-}
-
 impl Related<super::team_driver::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TeamDriver.def()
+    }
+}
+
+impl Related<super::team_car::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TeamCar.def()
     }
 }
 

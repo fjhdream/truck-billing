@@ -3,7 +3,7 @@ use sea_orm::{ActiveModelTrait, Set};
 use uuid::Uuid;
 
 use crate::{entities::team, DATABASE};
-use crate::team_service::service::TeamUser;
+use crate::team_service::service::{TeamCar, TeamUser};
 
 use super::service::Team;
 
@@ -97,6 +97,29 @@ enum TeamDeleteCarResponse {
     Error,
 }
 
+
+#[derive(ApiResponse)]
+enum TeamGetCarResponse {
+    #[oai(status = 200)]
+    Ok(Json<Vec<TeamCarResponseEntity>>),
+
+    #[oai(status = 500)]
+    Error,
+}
+
+#[derive(Debug, Object, Clone, Eq, PartialEq)]
+struct TeamCarResponseEntity {
+    car_id: String,
+}
+
+impl From<TeamCar> for TeamCarResponseEntity {
+    fn from(team_car : TeamCar) -> Self {
+        TeamCarResponseEntity {
+            car_id: team_car.car_id.to_string()
+        }
+    }
+}
+
 pub struct TeamRouter;
 
 #[OpenApi]
@@ -174,6 +197,61 @@ impl TeamRouter {
             }
         } else {
             TeamGetUserResponse::Error
+        }
+    }
+
+
+    #[oai(path = "/team/:team_id/car", method = "post", tag = "ApiTags::Team")]
+    async fn team_add_car(
+        &self,
+        team_id: Path<String>,
+        team_dto: Json<TeamCarDTO>,
+    ) -> TeamAddCarResponse {
+        let team_id = team_id.0;
+        if let Ok(team) = Team::from_id(team_id).await {
+            if let Ok(_res) = team.add_car(team_dto.car_id.clone()).await {
+                TeamAddCarResponse::Ok
+            } else {
+                TeamAddCarResponse::Error
+            }
+        } else {
+            TeamAddCarResponse::Error
+        }
+    }
+
+    #[oai(path = "/team/:team_id/car", method = "delete", tag = "ApiTags::Team")]
+    async fn team_delete_car(
+        &self,
+        team_id: Path<String>,
+        team_dto: Json<TeamCarDTO>,
+    ) -> TeamDeleteCarResponse {
+        let team_id = team_id.0;
+        if let Ok(team) = Team::from_id(team_id).await {
+            if let Ok(_res) = team.add_car(team_dto.car_id.clone()).await {
+                TeamDeleteCarResponse::Ok
+            } else {
+                TeamDeleteCarResponse::Error
+            }
+        } else {
+            TeamDeleteCarResponse::Error
+        }
+    }
+
+    #[oai(path = "/team/:team_id/car", method = "get", tag = "ApiTags::Team")]
+    async fn team_get_car(&self, team_id: Path<String>) -> TeamGetCarResponse {
+        let team_id = team_id.0;
+        if let Ok(team) = Team::from_id(team_id).await {
+            if let Ok(res) = team.get_cars().await {
+                let mut response: Vec<TeamCarResponseEntity> = vec![];
+                for team_car in res {
+                    response.push(team_car.into());
+                }
+                TeamGetCarResponse::Ok(Json(response))
+            } else {
+                TeamGetCarResponse::Error
+            }
+        } else {
+            TeamGetCarResponse::Error
         }
     }
 }

@@ -3,7 +3,7 @@
 use super::sea_orm_active_enums::RoleType;
 use sea_orm::entity::prelude::*;
 
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "role")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
