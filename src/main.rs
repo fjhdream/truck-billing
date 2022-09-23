@@ -19,6 +19,7 @@ use std::env;
 use team_service::controller::TeamRouter;
 use tokio::sync::OnceCell;
 use tracing::log::warn;
+use tracing_subscriber::prelude::*;
 
 use user_service::controller::UserRouter;
 
