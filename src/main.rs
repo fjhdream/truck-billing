@@ -2,11 +2,13 @@
 extern crate lazy_static;
 extern crate dotenv;
 
+mod billing_service;
 mod entities;
 mod role_service;
 mod team_service;
 mod user_service;
 
+use billing_service::controller::BillingRouter;
 use dotenv::dotenv;
 use poem::{
     error::NotFoundError, http::StatusCode, listener::TcpListener, EndpointExt, Response, Route,
@@ -19,7 +21,6 @@ use std::env;
 use team_service::controller::TeamRouter;
 use tokio::sync::OnceCell;
 use tracing::log::warn;
-use tracing_subscriber::prelude::*;
 
 use user_service::controller::UserRouter;
 
@@ -50,7 +51,7 @@ async fn main() -> Result<(), std::io::Error> {
     );
 
     let api_service = OpenApiService::new(
-        (UserRouter, UserRoleRouter, TeamRouter),
+        (UserRouter, UserRoleRouter, TeamRouter, BillingRouter),
         "Truck Billing Service",
         "1.0",
     )
