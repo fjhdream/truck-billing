@@ -2,8 +2,8 @@ use poem_openapi::{param::Path, payload::Json, ApiResponse, Object, OpenApi, Tag
 use sea_orm::{ActiveModelTrait, Set};
 use uuid::Uuid;
 
-use crate::{entities::team, DATABASE};
 use crate::team_service::service::{TeamCar, TeamUser};
+use crate::{entities::team, DATABASE};
 
 use super::service::Team;
 
@@ -66,9 +66,9 @@ struct TeamUserResponseEntity {
 }
 
 impl From<TeamUser> for TeamUserResponseEntity {
-    fn from(team_user : TeamUser) -> Self {
+    fn from(team_user: TeamUser) -> Self {
         TeamUserResponseEntity {
-            user_id: team_user.user_id
+            user_id: team_user.user_id,
         }
     }
 }
@@ -97,7 +97,6 @@ enum TeamDeleteCarResponse {
     Error,
 }
 
-
 #[derive(ApiResponse)]
 enum TeamGetCarResponse {
     #[oai(status = 200)]
@@ -113,9 +112,9 @@ struct TeamCarResponseEntity {
 }
 
 impl From<TeamCar> for TeamCarResponseEntity {
-    fn from(team_car : TeamCar) -> Self {
+    fn from(team_car: TeamCar) -> Self {
         TeamCarResponseEntity {
-            car_id: team_car.car_id.to_string()
+            car_id: team_car.car_id.to_string(),
         }
     }
 }
@@ -199,7 +198,6 @@ impl TeamRouter {
             TeamGetUserResponse::Error
         }
     }
-
 
     #[oai(path = "/team/:team_id/car", method = "post", tag = "ApiTags::Team")]
     async fn team_add_car(
