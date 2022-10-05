@@ -26,6 +26,17 @@ pub enum UserRoleType {
     None,
 }
 
+impl ToString for UserRoleType {
+    fn to_string(&self) -> String {
+        match self {
+            UserRoleType::Admin => String::from("ADMIN"),
+            UserRoleType::Driver => String::from("DRIVER"),
+            UserRoleType::Owner => String::from("OWNER"),
+            UserRoleType::None => String::from("NONE"),
+        }
+    }
+}
+
 impl Into<RoleType> for UserRoleType {
     fn into(self) -> RoleType {
         match self {
@@ -52,9 +63,9 @@ impl FromStr for UserRoleType {
 
     fn from_str(input: &str) -> Result<UserRoleType, Self::Err> {
         match input {
-            "Admin" => Ok(UserRoleType::Admin),
-            "Owner" => Ok(UserRoleType::Owner),
-            "Driver" => Ok(UserRoleType::Driver),
+            "ADMIN" => Ok(UserRoleType::Admin),
+            "OWNER" => Ok(UserRoleType::Owner),
+            "DRIVER" => Ok(UserRoleType::Driver),
             _ => Ok(UserRoleType::None),
         }
     }
