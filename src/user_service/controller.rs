@@ -1,10 +1,16 @@
-use crate::{entities::user, role_service::service::UserRoleType, DATABASE};
+use std::vec;
+
+use crate::{
+    entities::{role, user},
+    role_service::service::UserRoleType,
+    DATABASE,
+};
 use poem::web::Path;
 use poem_openapi::{payload::Json, ApiResponse, Object, OpenApi, Tags};
-use sea_orm::EntityTrait;
+use sea_orm::{EntityTrait, ModelTrait};
 use tracing::{log::error, log::warn};
 
-use super::service::UserAggregate;
+use super::service::{UserAggregate, UserAggregateRole};
 
 #[derive(Tags)]
 enum ApiTags {
@@ -13,7 +19,7 @@ enum ApiTags {
 }
 
 #[derive(Debug, Object, Clone, Eq, PartialEq)]
-pub struct UserDTO {
+pub struct UserCreateDTO {
     /// Id
     #[oai(validator(max_length = 128))]
     pub id: String,
@@ -35,20 +41,45 @@ enum CreateUserResponse {
 }
 
 #[derive(Debug, Object, Clone, Eq, PartialEq)]
-pub struct UserEntity {
+pub struct UserQueryDTO {
     pub id: String,
 
     pub name: String,
 
     pub avatar_url: Option<String>,
 
-    pub role: Option<Vec<String>>,
+    pub roles: Option<Vec<RoleDTO>>,
+}
+
+#[derive(Debug, Object, Clone, Eq, PartialEq)]
+pub struct RoleDTO {
+    pub role_id: String,
+
+    pub role_type: String,
+}
+
+impl From<UserAggregateRole> for RoleDTO {
+    fn from(user_role: UserAggregateRole) -> Self {
+        RoleDTO {
+            role_id: user_role.id,
+            role_type: user_role.role,
+        }
+    }
+}
+
+impl From<role::Model> for RoleDTO {
+    fn from(role: role::Model) -> Self {
+        RoleDTO {
+            role_id: role.id.to_string(),
+            role_type: role.r#type.to_string(),
+        }
+    }
 }
 
 #[derive(ApiResponse)]
 enum GetUserResponse {
     #[oai(status = 200)]
-    Ok(Json<UserEntity>),
+    Ok(Json<UserQueryDTO>),
 
     #[oai(status = 500)]
     Error,
@@ -57,7 +88,7 @@ enum GetUserResponse {
 #[derive(ApiResponse)]
 enum GetAllUserResponse {
     #[oai(status = 200)]
-    Ok(Json<Vec<UserEntity>>),
+    Ok(Json<Vec<UserQueryDTO>>),
 
     #[oai(status = 401)]
     Forbidden,
@@ -71,7 +102,7 @@ pub struct UserRouter;
 #[OpenApi]
 impl UserRouter {
     #[oai(path = "/user", method = "post", tag = "ApiTags::User")]
-    async fn create(&self, user: Json<UserDTO>) -> CreateUserResponse {
+    async fn create(&self, user: Json<UserCreateDTO>) -> CreateUserResponse {
         let user_dto = user.0;
         let user_aggregate: UserAggregate = user_dto.into();
         let create_result = user_aggregate.create_user().await;
@@ -100,12 +131,16 @@ impl UserRouter {
             warn!("create user met error {}", err);
             return GetUserResponse::Error;
         }
-        let query_role = query_role_result.unwrap();
-        let user_entity = UserEntity {
+        let query_roles = query_role_result.unwrap();
+        let mut roles = vec![];
+        for role in query_roles {
+            roles.push(role.into());
+        }
+        let user_entity = UserQueryDTO {
             id: user_aggregate.id,
             name: user_aggregate.name,
             avatar_url: user_aggregate.avatar_url,
-            role: Some(query_role.roles),
+            roles: Some(roles),
         };
         GetUserResponse::Ok(Json(user_entity))
     }
@@ -124,27 +159,39 @@ impl UserRouter {
             return GetAllUserResponse::Error;
         }
         let user_aggregate = user_aggregate_result.unwrap();
-        let query_role_result = user_aggregate.get_user_role().await;
-        if let Err(err) = query_role_result {
-            warn!("create user met error {}", err);
+        let is_user_admin_result = user_aggregate.is_admin().await;
+        if let Err(err) = is_user_admin_result {
+            error!(
+                "Get user form db error {}! user is is {}",
+                err,
+                user_id.clone()
+            );
             return GetAllUserResponse::Error;
         }
-        let query_role = query_role_result.unwrap();
-        if !query_role.roles.contains(&UserRoleType::Admin.to_string()) {
+        if !is_user_admin_result.unwrap() {
+            warn!("User ({}) is not ADMIN.", user_id.clone());
             return GetAllUserResponse::Forbidden;
         }
-        let users_result = user::Entity::find().all(db).await;
-        if users_result.is_err() {
+        let user_roles_result = user::Entity::find()
+            .find_with_related(role::Entity)
+            .all(db)
+            .await;
+        if user_roles_result.is_err() {
             error!("query all user form db error!");
+            return GetAllUserResponse::Error;
         }
-        let users = users_result.unwrap();
+        let user_roles = user_roles_result.unwrap();
         let mut response = vec![];
-        for user in users {
-            response.push(UserEntity {
+        for (user, roles) in user_roles {
+            let mut role_array = vec![];
+            for role in roles {
+                role_array.push(role.into());
+            }
+            response.push(UserQueryDTO {
                 id: user.id,
                 name: user.user_name,
-                avatar_url: user.avatar_url, 
-                role: None,
+                avatar_url: user.avatar_url,
+                roles: Some(role_array),
             })
         }
         GetAllUserResponse::Ok(Json(response))

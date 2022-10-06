@@ -8,7 +8,7 @@ use crate::{
     DATABASE,
 };
 
-use super::controller::UserDTO;
+use super::controller::UserCreateDTO;
 
 #[derive(Debug)]
 pub enum UserError {
@@ -88,22 +88,36 @@ impl UserAggregate {
     }
 
     #[instrument]
-    pub async fn get_user_role(&self) -> Result<UserAggregateRole, UserError> {
+    pub async fn get_user_role(&self) -> Result<Vec<UserAggregateRole>, UserError> {
         let db = DATABASE.get().unwrap();
         let query_result = role::Entity::find()
             .filter(role::Column::UserId.eq(self.id.clone()))
             .all(db)
             .await?;
-        let mut role_array: Vec<String> = vec![];
+        let mut result = vec![];
         for query_model in query_result {
-            role_array.push(query_model.r#type.to_string());
+            result.push(UserAggregateRole {
+                id: query_model.id.to_string(),
+                role: query_model.r#type.to_string(),
+            });
         }
-        Ok(UserAggregateRole { roles: role_array })
+        Ok(result)
+    }
+
+    #[instrument]
+    pub async fn is_admin(&self) -> Result<bool, UserError> {
+        let user_role_result = self.get_user_role().await?;
+        for user_aggregate_role in user_role_result {
+            if user_aggregate_role.role == RoleType::Admin.to_string() {
+                return Ok(true);
+            }
+        }
+        return Ok(false);
     }
 }
 
-impl From<UserDTO> for UserAggregate {
-    fn from(user: UserDTO) -> Self {
+impl From<UserCreateDTO> for UserAggregate {
+    fn from(user: UserCreateDTO) -> Self {
         Self {
             id: user.id,
             name: user.name,
@@ -113,5 +127,6 @@ impl From<UserDTO> for UserAggregate {
 }
 
 pub struct UserAggregateRole {
-    pub roles: Vec<String>,
+    pub id: String,
+    pub role: String,
 }
