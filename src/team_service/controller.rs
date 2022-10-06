@@ -1,5 +1,6 @@
 use poem_openapi::{param::Path, payload::Json, ApiResponse, Object, OpenApi, Tags};
-use sea_orm::{ActiveModelTrait, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use tracing::error;
 use uuid::Uuid;
 
 use crate::team_service::service::{TeamCar, TeamUser};
@@ -22,6 +23,32 @@ pub struct TeamCreateDTO {
 enum CreateTeamResponse {
     #[oai(status = 200)]
     Ok,
+
+    #[oai(status = 500)]
+    Error,
+}
+
+#[derive(Debug, Object, Clone, Eq, PartialEq)]
+pub struct TeamQueryDTO {
+    #[oai(validator(max_length = 128))]
+    pub team_name: String,
+
+    pub team_id: String,
+}
+
+impl From<team::Model> for TeamQueryDTO {
+    fn from(team_model: team::Model) -> Self {
+        TeamQueryDTO {
+            team_name: team_model.team_name,
+            team_id: team_model.id.to_string(),
+        }
+    }
+}
+
+#[derive(ApiResponse)]
+enum QueryTeamResponse {
+    #[oai(status = 200)]
+    Ok(Json<Vec<TeamQueryDTO>>),
 
     #[oai(status = 500)]
     Error,
@@ -143,6 +170,30 @@ impl TeamRouter {
             return CreateTeamResponse::Error;
         }
         CreateTeamResponse::Ok
+    }
+
+    #[oai(path = "/user/:user_id/team", method = "get", tag = "ApiTags::Team")]
+    async fn query_team(&self, user_id: Path<String>) -> QueryTeamResponse {
+        let db = DATABASE.get().unwrap();
+        let user_id = user_id.0;
+        let query_result = team::Entity::find()
+            .filter(team::Column::UserId.eq(user_id.clone()))
+            .all(db)
+            .await;
+        if let Err(err) = query_result {
+            error!(
+                "query team db error, err is {}, user id is {}",
+                err,
+                user_id.clone()
+            );
+            return QueryTeamResponse::Error;
+        }
+        let query_models = query_result.unwrap();
+        let mut response = vec![];
+        for model in query_models {
+            response.push(model.into());
+        }
+        return QueryTeamResponse::Ok(Json(response));
     }
 
     #[oai(path = "/team/:team_id/user", method = "delete", tag = "ApiTags::Team")]
