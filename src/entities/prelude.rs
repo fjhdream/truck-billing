@@ -2,7 +2,6 @@
 
 pub use super::billing::Entity as Billing;
 pub use super::billing_item::Entity as BillingItem;
-pub use super::car::Entity as Car;
 pub use super::item::Entity as Item;
 pub use super::role::Entity as Role;
 pub use super::team::Entity as Team;

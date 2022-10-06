@@ -7,20 +7,12 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub car_id: Uuid,
     pub team_id: Uuid,
+    pub car_plate_number: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(
-        belongs_to = "super::car::Entity",
-        from = "Column::CarId",
-        to = "super::car::Column::Id",
-        on_update = "NoAction",
-        on_delete = "NoAction"
-    )]
-    Car,
     #[sea_orm(
         belongs_to = "super::team::Entity",
         from = "Column::TeamId",
@@ -29,12 +21,6 @@ pub enum Relation {
         on_delete = "NoAction"
     )]
     Team,
-}
-
-impl Related<super::car::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Car.def()
-    }
 }
 
 impl Related<super::team::Entity> for Entity {

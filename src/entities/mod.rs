@@ -4,7 +4,6 @@ pub mod prelude;
 
 pub mod billing;
 pub mod billing_item;
-pub mod car;
 pub mod item;
 pub mod role;
 pub mod sea_orm_active_enums;

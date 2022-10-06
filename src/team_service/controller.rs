@@ -1,5 +1,5 @@
 use poem_openapi::{param::Path, payload::Json, ApiResponse, Object, OpenApi, Tags};
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, IntoActiveModel};
 use tracing::error;
 use uuid::Uuid;
 
@@ -29,16 +29,16 @@ enum CreateTeamResponse {
 }
 
 #[derive(Debug, Object, Clone, Eq, PartialEq)]
-pub struct TeamQueryDTO {
+pub struct TeamEntityDTO {
     #[oai(validator(max_length = 128))]
     pub team_name: String,
 
     pub team_id: String,
 }
 
-impl From<team::Model> for TeamQueryDTO {
+impl From<team::Model> for TeamEntityDTO {
     fn from(team_model: team::Model) -> Self {
-        TeamQueryDTO {
+        TeamEntityDTO {
             team_name: team_model.team_name,
             team_id: team_model.id.to_string(),
         }
@@ -48,11 +48,21 @@ impl From<team::Model> for TeamQueryDTO {
 #[derive(ApiResponse)]
 enum QueryTeamResponse {
     #[oai(status = 200)]
-    Ok(Json<Vec<TeamQueryDTO>>),
+    Ok(Json<Vec<TeamEntityDTO>>),
 
     #[oai(status = 500)]
     Error,
 }
+
+#[derive(ApiResponse)]
+enum UpdateTeamResponse {
+    #[oai(status = 200)]
+    Ok,
+
+    #[oai(status = 500)]
+    Error,
+}
+
 
 #[derive(Debug, Object, Clone, Eq, PartialEq)]
 pub struct TeamUserDTO {
@@ -101,7 +111,13 @@ impl From<TeamUser> for TeamUserResponseEntity {
 }
 
 #[derive(Debug, Object, Clone, Eq, PartialEq)]
-pub struct TeamCarDTO {
+pub struct TeamCarCreateDTO {
+    #[oai(validator(max_length = 128))]
+    pub car_plate_number: String,
+}
+
+#[derive(Debug, Object, Clone, Eq, PartialEq)]
+pub struct TeamCarDeleteDTO {
     #[oai(validator(max_length = 128))]
     pub car_id: String,
 }
@@ -136,12 +152,14 @@ enum TeamGetCarResponse {
 #[derive(Debug, Object, Clone, Eq, PartialEq)]
 struct TeamCarResponseEntity {
     car_id: String,
+    car_plate_number: String,
 }
 
 impl From<TeamCar> for TeamCarResponseEntity {
     fn from(team_car: TeamCar) -> Self {
         TeamCarResponseEntity {
             car_id: team_car.car_id.to_string(),
+            car_plate_number: team_car.car_plate_number,
         }
     }
 }
@@ -171,6 +189,40 @@ impl TeamRouter {
         }
         CreateTeamResponse::Ok
     }
+
+    #[oai(path = "/user/:user_id/team", method = "put", tag = "ApiTags::Team")]
+    async fn update_team(
+        &self,
+        user_id: Path<String>,
+        team: Json<TeamEntityDTO>,
+    ) -> UpdateTeamResponse {
+        let db = DATABASE.get().unwrap();
+        let team_id = team.team_id.clone();
+        let team_id_uuid = Uuid::parse_str(&team_id);
+        if let Err(err) = team_id_uuid {
+            error!("parse id to uuid error, err is {}", err);
+            return UpdateTeamResponse::Error;
+        }
+        let team_id_uuid = team_id_uuid.unwrap();
+        let model_result = team::Entity::find_by_id(team_id_uuid).one(db).await;
+        if let Err(err) = model_result {
+            error!("Query Team error, error is {}, team id is {}", err, team_id.clone());
+            return UpdateTeamResponse::Error;
+        }
+        let model = model_result.unwrap();
+        if let Some(team_model) = model {
+            let mut team_active_model = team_model.into_active_model();
+            team_active_model.team_name = Set(team.team_name.clone());
+            let update_result = team_active_model.update(db).await;
+            if update_result.is_err() {
+                error!("update team name error");
+                return UpdateTeamResponse::Error;
+            }
+            return UpdateTeamResponse::Ok;
+        }
+        UpdateTeamResponse::Error
+    }
+
 
     #[oai(path = "/user/:user_id/team", method = "get", tag = "ApiTags::Team")]
     async fn query_team(&self, user_id: Path<String>) -> QueryTeamResponse {
@@ -254,16 +306,20 @@ impl TeamRouter {
     async fn team_add_car(
         &self,
         team_id: Path<String>,
-        team_dto: Json<TeamCarDTO>,
+        team_dto: Json<TeamCarCreateDTO>,
     ) -> TeamAddCarResponse {
         let team_id = team_id.0;
-        if let Ok(team) = Team::from_id(team_id).await {
-            if let Ok(_res) = team.add_car(team_dto.car_id.clone()).await {
+        let team_result = Team::from_id(team_id).await;
+        if let Ok(team) = team_result {
+            let add_car_result = team.add_car(team_dto.car_plate_number.clone()).await;
+            if let Ok(_res) = add_car_result {
                 TeamAddCarResponse::Ok
             } else {
+                error!("add car error");
                 TeamAddCarResponse::Error
             }
         } else {
+            error!("get team error, error is {}", team_result.unwrap_err());
             TeamAddCarResponse::Error
         }
     }
@@ -272,11 +328,11 @@ impl TeamRouter {
     async fn team_delete_car(
         &self,
         team_id: Path<String>,
-        team_dto: Json<TeamCarDTO>,
+        team_car_dto: Json<TeamCarDeleteDTO>,
     ) -> TeamDeleteCarResponse {
         let team_id = team_id.0;
         if let Ok(team) = Team::from_id(team_id).await {
-            if let Ok(_res) = team.add_car(team_dto.car_id.clone()).await {
+            if let Ok(_res) = team.delete_car(team_car_dto.car_id.clone()).await {
                 TeamDeleteCarResponse::Ok
             } else {
                 TeamDeleteCarResponse::Error

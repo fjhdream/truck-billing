@@ -4,17 +4,17 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, DbErr, EntityTrait, ModelTrait, Que
 use tracing::{info, instrument, warn};
 use uuid::Uuid;
 
+use crate::entities::team_car;
 use crate::{
     entities::{team, team_driver},
     DATABASE,
 };
-use crate::entities::team_car;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TeamError {
     QueryTeamError(String),
     DbError,
-    UuidError
+    UuidError,
 }
 
 impl From<DbErr> for TeamError {
@@ -24,7 +24,7 @@ impl From<DbErr> for TeamError {
 }
 
 impl From<uuid::Error> for TeamError {
-    fn from(_err : uuid::Error) -> Self {
+    fn from(_err: uuid::Error) -> Self {
         TeamError::UuidError
     }
 }
@@ -66,6 +66,7 @@ pub struct TeamUser {
 #[derive(Debug)]
 pub struct TeamCar {
     pub car_id: Uuid,
+    pub car_plate_number: String,
 }
 
 impl Team {
@@ -107,17 +108,16 @@ impl Team {
     }
 
     #[instrument]
-    pub async fn add_car(&self, car_id: String) -> Result<(), TeamError> {
+    pub async fn add_car(&self, car_plate_number: String) -> Result<(), TeamError> {
         let team_id = self.id;
-        let car_id = Uuid::parse_str(&car_id)?;
         let db = DATABASE.get().unwrap();
         let _insert_result = team_car::ActiveModel {
             id: Set(Uuid::new_v4()),
-            car_id: Set(car_id),
+            car_plate_number: Set(car_plate_number),
             team_id: Set(team_id),
         }
-            .insert(db)
-            .await?;
+        .insert(db)
+        .await?;
         Ok(())
     }
 
@@ -145,7 +145,7 @@ impl Team {
         let db = DATABASE.get().unwrap();
         let query_result = team_car::Entity::find()
             .filter(team_car::Column::TeamId.eq(self.id))
-            .filter(team_car::Column::CarId.eq(car_id))
+            .filter(team_car::Column::Id.eq(car_id))
             .one(db)
             .await?;
         if let Some(query_model) = query_result {
@@ -187,7 +187,8 @@ impl Team {
         let mut res: Vec<TeamCar> = vec![];
         for query in query_result {
             let team_car = TeamCar {
-                car_id: query.car_id,
+                car_id: query.id,
+                car_plate_number: query.car_plate_number,
             };
             res.push(team_car);
         }
