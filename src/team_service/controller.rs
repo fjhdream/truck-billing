@@ -19,6 +19,12 @@ pub struct TeamCreateDTO {
     pub name: String,
 }
 
+#[derive(Debug, Object, Clone, Eq, PartialEq)]
+pub struct TeamDeleteDTO {
+    #[oai(validator(max_length = 128))]
+    pub team_id: String,
+}
+
 #[derive(ApiResponse)]
 enum CreateTeamResponse {
     #[oai(status = 200)]
@@ -63,6 +69,14 @@ enum UpdateTeamResponse {
     Error,
 }
 
+#[derive(ApiResponse)]
+enum DeleteTeamResponse {
+    #[oai(status = 204)]
+    Ok,
+
+    #[oai(status = 500)]
+    Error,
+}
 
 #[derive(Debug, Object, Clone, Eq, PartialEq)]
 pub struct TeamUserDTO {
@@ -221,6 +235,28 @@ impl TeamRouter {
             return UpdateTeamResponse::Ok;
         }
         UpdateTeamResponse::Error
+    }
+
+    #[oai(path = "/user/:user_id/team", method = "delete", tag = "ApiTags::Team")]
+    async fn delete_team(
+        &self,
+        user_id: Path<String>,
+        team: Json<TeamDeleteDTO>,
+    ) -> DeleteTeamResponse {
+        let db = DATABASE.get().unwrap();
+        let team_id = team.0.team_id;
+        let team_aggreagte = Team::from_id(team_id).await;
+        if let Err(err) = team_aggreagte {
+            error!("Get team form db error, err is {}", err);
+            return DeleteTeamResponse::Error;
+        }
+        let team_aggreagte = team_aggreagte.unwrap();
+        let team_delte_result = team_aggreagte.delete().await;
+        if let Err(err) = team_delte_result {
+            error!("Team delete error. Error is {}", err);
+            return  DeleteTeamResponse::Error;
+        }
+        DeleteTeamResponse::Ok
     }
 
 
