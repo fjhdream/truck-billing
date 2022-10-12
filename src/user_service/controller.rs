@@ -1,13 +1,11 @@
-use std::vec;
+use std::{env, vec};
 
-use crate::{
-    entities::{role, user},
-    role_service::service::UserRoleType,
-    DATABASE,
-};
+use crate::entities::{role, user};
+use crate::DATABASE;
 use poem::web::Path;
 use poem_openapi::{payload::Json, ApiResponse, Object, OpenApi, Tags};
-use sea_orm::{EntityTrait, ModelTrait};
+use sea_orm::EntityTrait;
+use serde::{Deserialize, Serialize};
 use tracing::{log::error, log::warn};
 
 use super::service::{UserAggregate, UserAggregateRole};
@@ -97,6 +95,34 @@ enum GetAllUserResponse {
     Error,
 }
 
+#[derive(Debug, Object, Clone, Eq, PartialEq, Deserialize, Serialize)]
+pub struct UserWxLoginDTO {
+    pub code: String,
+}
+
+#[derive(Debug, Object, Clone, Eq, PartialEq, Deserialize, Serialize)]
+pub struct WxLoginDTO {
+    pub openid: String,
+    pub session_key: String,
+    pub unionid: Option<String>,
+    pub errcode: i32,
+    pub errmsg: Option<String>,
+}
+
+#[derive(Debug, Object, Clone, Eq, PartialEq)]
+pub struct UserWxLoginResponseDTO {
+    pub code: String,
+}
+
+#[derive(ApiResponse)]
+enum UserLoginResponse {
+    #[oai(status = 200)]
+    Ok(Json<UserWxLoginResponseDTO>),
+
+    #[oai(status = 500)]
+    Error,
+}
+
 pub struct UserRouter;
 
 #[OpenApi]
@@ -111,6 +137,33 @@ impl UserRouter {
             return CreateUserResponse::Error;
         }
         CreateUserResponse::Ok(Json(create_result.unwrap()))
+    }
+
+    #[oai(path = "/user/login", method = "post", tag = "ApiTags::User")]
+    async fn login(&self, user: Json<UserWxLoginDTO>) -> UserLoginResponse {
+        let (app_id, secret) = (env::var("APP_ID").unwrap(), env::var("APP_SECRET").unwrap());
+        let code = user.0.code;
+        let url = format!("https://api.weixin.qq.com/sns/jscode2session?app_id={app_id}&secret={secret}&js_code={code}&grant_type=authorization_codeauthorization_code", 
+                          app_id=app_id, secret = secret, code = code);
+        let resp = reqwest::get(url)
+            .await
+            .unwrap();
+        if let reqwest::StatusCode::OK = resp.status() {
+            if let Ok(wx_resp) = resp.json::<WxLoginDTO>().await {
+                if wx_resp.errcode != 0 {
+                    error!("Wx login response success, but error code is not success");
+                    return UserLoginResponse::Error;
+                }
+                UserLoginResponse::Ok(Json(UserWxLoginResponseDTO {
+                    code: wx_resp.openid,
+                }))
+            } else {
+                UserLoginResponse::Error
+            }
+        } else {
+            error!("Wx login response failed.");
+            UserLoginResponse::Error
+        }
     }
 
     #[oai(path = "/user/:user_id", method = "get", tag = "ApiTags::User")]
