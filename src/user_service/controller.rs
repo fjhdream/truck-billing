@@ -106,7 +106,7 @@ pub struct WxLoginDTO {
     pub openid: Option<String>,
     pub session_key: Option<String>,
     pub unionid: Option<String>,
-    pub errcode: i32,
+    pub errcode: Option<i32>,
     pub errmsg: Option<String>,
 }
 
@@ -156,61 +156,72 @@ impl UserRouter {
         let resp = reqwest::get(url).await.unwrap();
         if let reqwest::StatusCode::OK = resp.status() {
             match resp.json::<WxLoginDTO>().await {
-                Ok(wx_resp) => match wx_resp.errcode {
-                    -1 => {
-                        error!(
-                            "wx system is busy, err is {}",
-                            wx_resp.errmsg.clone().unwrap_or("empty".to_owned())
-                        );
-                        UserLoginResponse::Error(Json(UserWxLoginErrorResponse {
-                            err_code: Some(wx_resp.errcode.to_string()),
-                            err_msg: wx_resp.errmsg.clone(),
-                        }))
-                    }
-                    0 => UserLoginResponse::Ok(Json(UserWxLoginResponseDTO {
-                        code: wx_resp.openid.unwrap(),
-                    })),
-                    40029 => {
-                        error!(
-                            "code is can not be used. err or msg is {}",
-                            wx_resp.errmsg.clone().unwrap_or("empty".to_owned())
-                        );
-                        UserLoginResponse::Error(Json(UserWxLoginErrorResponse {
-                            err_code: Some(wx_resp.errcode.to_string()),
-                            err_msg: wx_resp.errmsg,
-                        }))
-                    }
-                    45011 => {
-                        error!(
-                            "call api too frequently. err msg is {}",
-                            wx_resp.errmsg.clone().unwrap_or("empty".to_owned())
-                        );
-                        UserLoginResponse::Error(Json(UserWxLoginErrorResponse {
-                            err_code: Some(wx_resp.errcode.to_string()),
-                            err_msg: wx_resp.errmsg,
-                        }))
-                    }
-                    40226 => {
-                        error!(
-                            "high risk level user. err msg is {}",
-                            wx_resp.errmsg.clone().unwrap_or("empty".to_owned())
-                        );
-                        UserLoginResponse::Error(Json(UserWxLoginErrorResponse {
-                            err_code: Some(wx_resp.errcode.to_string()),
-                            err_msg: wx_resp.errmsg,
-                        }))
-                    }
-                    _ => {
-                        error!(
-                            "wx unused error code. err code is {}, err msg is {}",
-                            wx_resp.errcode,
-                            wx_resp.errmsg.clone().unwrap_or("empty".to_owned())
-                        );
-                        UserLoginResponse::Error(Json(UserWxLoginErrorResponse {
-                            err_code: Some(wx_resp.errcode.to_string()),
-                            err_msg: wx_resp.errmsg,
-                        }))
-                    }
+                Ok(wx_resp) => match &wx_resp.errcode {
+                    Some(errcode) => match errcode {
+                        -1 => {
+                            error!(
+                                "wx system is busy, err is {}",
+                                wx_resp.errmsg.clone().unwrap_or("empty".to_owned())
+                            );
+                            UserLoginResponse::Error(Json(UserWxLoginErrorResponse {
+                                err_code: Some(errcode.to_string()),
+                                err_msg: wx_resp.errmsg.clone(),
+                            }))
+                        }
+                        0 => UserLoginResponse::Ok(Json(UserWxLoginResponseDTO {
+                            code: wx_resp.openid.unwrap(),
+                        })),
+                        40029 => {
+                            error!(
+                                "code is can not be used. err or msg is {}",
+                                wx_resp.errmsg.clone().unwrap_or("empty".to_owned())
+                            );
+                            UserLoginResponse::Error(Json(UserWxLoginErrorResponse {
+                                err_code: Some(errcode.to_string()),
+                                err_msg: wx_resp.errmsg,
+                            }))
+                        }
+                        45011 => {
+                            error!(
+                                "call api too frequently. err msg is {}",
+                                wx_resp.errmsg.clone().unwrap_or("empty".to_owned())
+                            );
+                            UserLoginResponse::Error(Json(UserWxLoginErrorResponse {
+                                err_code: Some(errcode.to_string()),
+                                err_msg: wx_resp.errmsg,
+                            }))
+                        }
+                        40226 => {
+                            error!(
+                                "high risk level user. err msg is {}",
+                                wx_resp.errmsg.clone().unwrap_or("empty".to_owned())
+                            );
+                            UserLoginResponse::Error(Json(UserWxLoginErrorResponse {
+                                err_code: Some(errcode.to_string()),
+                                err_msg: wx_resp.errmsg,
+                            }))
+                        }
+                        _ => {
+                            error!(
+                                "wx unused error code. err code is {}, err msg is {}",
+                                errcode,
+                                wx_resp.errmsg.clone().unwrap_or("empty".to_owned())
+                            );
+                            UserLoginResponse::Error(Json(UserWxLoginErrorResponse {
+                                err_code: Some(errcode.to_string()),
+                                err_msg: wx_resp.errmsg,
+                            }))
+                        }
+                    },
+                    None => match wx_resp.openid {
+                        Some(openid) => {
+                            UserLoginResponse::Ok(Json(UserWxLoginResponseDTO { code: openid }))
+                        }
+                        None => UserLoginResponse::Error(Json(UserWxLoginErrorResponse {
+                            err_code: None,
+                            err_msg: None,
+                        })),
+                    },
                 },
                 Err(err) => {
                     error!("response is not correctly deserialize. error is {}", err);
