@@ -5,7 +5,7 @@ use uuid::{uuid, Uuid};
 
 use crate::{billing_service::service::Team, team_service::service::TeamError};
 
-use super::service::TeamService;
+use super::service::TeamBillingService;
 
 #[derive(Tags)]
 enum ApiTags {

@@ -3,15 +3,12 @@ use std::result;
 use async_trait::async_trait;
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
 use rust_decimal::Decimal;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, DbErr, EntityTrait, JoinType, QueryFilter,
-    QuerySelect, RelationTrait, Set, Unset,
-};
-use tracing::log::warn;
+use sea_orm::{ActiveModelTrait, ActiveValue::NotSet, DbErr, EntityTrait, Set};
+use tracing::log::error;
 use uuid::Uuid;
 
 use crate::{
-    entities::{billing, billing_item, team},
+    entities::{self, billing, billing_item, team},
     DATABASE,
 };
 
@@ -26,6 +23,17 @@ impl From<DbErr> for TeamError {
     }
 }
 
+pub enum TeamBillingError {
+    DBError(DbErr),
+    EmptyBillingError,
+}
+
+impl From<DbErr> for TeamBillingError {
+    fn from(dbErr: DbErr) -> Self {
+        TeamBillingError::DBError(dbErr)
+    }
+}
+
 pub struct Team {
     id: Uuid,
     team_name: String,
@@ -34,15 +42,15 @@ pub struct Team {
 }
 
 #[async_trait]
-pub trait TeamService {
+pub trait TeamBillingService {
     async fn create_billing(&self, name: String) -> Result<Billing, TeamError>;
 }
 
 #[async_trait]
-pub trait BillingService {
-    async fn end_billing(&self) -> Result<Billing, TeamError>;
-    async fn add_billing_item(&self, item: BillingItem) -> Result<(), TeamError>;
-    async fn delete_billing_item(&self, item_id: Uuid) -> Result<(), TeamError>;
+pub trait BillingItemService {
+    async fn end_billing(&self) -> Result<(), TeamBillingError>;
+    async fn add_billing_item(&self, item: BillingItem) -> Result<(), TeamBillingError>;
+    async fn delete_billing_item(&self, item_id: Uuid) -> Result<(), TeamBillingError>;
 }
 
 pub struct Billing {
@@ -62,6 +70,32 @@ impl From<billing::Model> for Billing {
             end_time: parse_navie_time_to_data_time(billing_model.end_time),
             billing_items: None,
         }
+    }
+}
+
+#[async_trait]
+impl BillingItemService for Billing {
+    async fn end_billing(&self) -> Result<(), TeamBillingError> {
+        let db = DATABASE.get().unwrap();
+        let billing: Option<billing::Model> = entities::billing::Entity::find_by_id(self.id)
+            .one(db)
+            .await?;
+        if let Some(bill) = billing {
+            let mut bill_model: entities::billing::ActiveModel = bill.into();
+            bill_model.end_time = Set(Some(Local::now().naive_local()));
+            bill_model.update(db).await?;
+            Ok(())
+        } else {
+            error!("can not find billing info");
+            return Err(TeamBillingError::EmptyBillingError);
+        }
+    }
+
+    async fn add_billing_item(&self, item: BillingItem) -> Result<(), TeamBillingError> {
+        todo!()
+    }
+    async fn delete_billing_item(&self, item_id: Uuid) -> Result<(), TeamBillingError> {
+        todo!()
     }
 }
 
@@ -103,7 +137,7 @@ impl Team {
 }
 
 #[async_trait]
-impl TeamService for Team {
+impl TeamBillingService for Team {
     async fn create_billing(&self, name: String) -> Result<Billing, TeamError> {
         let db = DATABASE.get().unwrap();
         let billing_model = billing::ActiveModel {
